@@ -3,12 +3,12 @@ package com.example.ecom.domain.service;
 import com.example.ecom.domain.model.*;
 import com.example.ecom.domain.port.out.OrderRepository;
 import com.example.ecom.domain.port.out.PaymentPort;
+import com.example.ecom.domain.port.out.PaymentRepository;
 import com.example.ecom.domain.port.out.ProductRepository;
 import com.example.ecom.infrastructure.adapters.out.external.payment.PaymentRequest;
 import com.example.ecom.infrastructure.adapters.out.external.payment.PaymentResponse;
 import com.example.ecom.infrastructure.shared.exceptions.InsufficientStockException;
 import com.example.ecom.infrastructure.shared.exceptions.OrderNotFoundException;
-import com.example.ecom.infrastructure.shared.exceptions.PaymentException;
 import com.example.ecom.infrastructure.shared.exceptions.ProductNotFoundException;
 import lombok.AllArgsConstructor;
 
@@ -19,6 +19,7 @@ public class OrderService {
     private final OrderRepository orderRepository;
     private final ProductRepository productRepository;
     private final PaymentPort paymentPort;
+    private final PaymentRepository paymentRepository;
 
     public Order placeOrder(Order order, PaymentRequest paymentDetails) {
         for (OrderItem item : order.getItems()) {
@@ -32,10 +33,7 @@ public class OrderService {
             }
         }
 
-        PaymentResponse paymentResponse = paymentPort.processPayment(paymentDetails);
-        if (paymentResponse.getStatus() != PaymentStatus.APPROVED && paymentResponse.getStatus() != PaymentStatus.AUTHORIZED) {
-            throw new PaymentException("Payment failed for order " + order.getId() + ": " + paymentResponse.getErrorMessage());
-        }
+        PaymentResponse paymentResponse = paymentPort.createPayment(paymentDetails);
 
         for (OrderItem item : order.getItems()) {
             productRepository.decrementStock(item.getProductId(), item.getQuantity());
@@ -44,6 +42,9 @@ public class OrderService {
         order.setOrderDate(LocalDateTime.now());
         order.setStatus(OrderStatus.PENDING);
         order.setTotalAmount(order.getTotalAmount());
+
+        Order createdOrder = orderRepository.save(order);
+        paymentRepository.save(Payment.createNewPayment(paymentResponse.getTransactionId(), createdOrder.getId(), createdOrder.getTotalAmount()));
 
         return orderRepository.save(order);
     }
