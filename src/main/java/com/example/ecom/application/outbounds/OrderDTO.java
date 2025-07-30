@@ -19,7 +19,6 @@ public record OrderDTO(
     @Builder
     public record OrderItemDTO(
             Long productId,
-            String productName,
             int quantity,
             BigDecimal priceAtOrder
     ) {}

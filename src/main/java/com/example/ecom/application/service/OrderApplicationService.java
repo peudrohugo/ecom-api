@@ -36,7 +36,7 @@ public class OrderApplicationService implements IOrderService {
         }
 
         BigDecimal totalAmount = BigDecimal.ZERO;
-        List<OrderItem> domainOrderItems = new java.util.ArrayList<>();
+        List<OrderItem> orderItems = new java.util.ArrayList<>();
 
         for (PlaceOrderData.OrderItemData itemCommand : data.items()) {
             Product product = productRepository.findById(itemCommand.productId())
@@ -53,14 +53,14 @@ public class OrderApplicationService implements IOrderService {
                     itemCommand.quantity(),
                     product.getPrice()
             );
-            domainOrderItems.add(orderItem);
+            orderItems.add(orderItem);
             totalAmount = totalAmount.add(product.getPrice().multiply(BigDecimal.valueOf(itemCommand.quantity())));
         }
 
         Order newOrder = Order.createNewOrder(
                 data.userId(),
                 totalAmount,
-                domainOrderItems
+                orderItems
         );
 
         PaymentRequest paymentRequest = new PaymentRequest(
@@ -85,7 +85,6 @@ public class OrderApplicationService implements IOrderService {
                             .orElse("Unknown Product");
                     return OrderDTO.OrderItemDTO.builder()
                             .productId(item.getProductId())
-                            .productName(productName)
                             .quantity(item.getQuantity())
                             .priceAtOrder(item.getPriceAtOrder())
                             .build();
@@ -98,6 +97,11 @@ public class OrderApplicationService implements IOrderService {
                 .orderDate(order.getOrderDate())
                 .status(order.getStatus())
                 .total(order.getTotalAmount())
+                .items(order.getItems().stream().map(orderItem -> OrderDTO.OrderItemDTO.builder()
+                        .productId(orderItem.getProductId())
+                        .priceAtOrder(orderItem.getPriceAtOrder())
+                        .quantity(orderItem.getQuantity())
+                        .build()).toList())
                 .build();
     }
 }
